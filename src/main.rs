@@ -50,8 +50,14 @@ mod tests {
         tree.insert(3);
         tree.insert(1);
         let tree = Rc::new(RefCell::new(tree));
-        let removed = remove_rc(tree, &1);
+        let tree_clone = Rc::clone(&tree);
+
+        let removed = remove_rc(tree_clone, &1);
+        let tree = tree.borrow();
         assert!(removed);
+        assert!(!tree.contains(&1));
+        assert!(tree.contains(&2));
+        assert!(tree.contains(&3));
     }
 
 

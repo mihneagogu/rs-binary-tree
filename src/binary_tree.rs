@@ -157,7 +157,7 @@ where T: Ord
                     if !left_exists && !right_exists {
                         // No children
                         if let Some(rc_parent) = parent {
-                            node.borrow_mut().item = None;
+                            tree.item = None;
                             let mut rc_parent = rc_parent.borrow_mut();
                             // Make sure the parent reference is updated
                             if child_is_left {
@@ -176,13 +176,17 @@ where T: Ord
                 } else {
                     // Haven't found value yet, going down the tree
                     if item > data {
-                        child = tree.get_left();
+                        child = tree.get_right();
+                        child_is_left = false; // right child of parent
                         parent = Some(node);
+                        continue;
                     } else
                     /* item < data */
                     {
-                        child = tree.get_right();
+                        child = tree.get_left();
+                        child_is_left = true;
                         parent = Some(node);
+                        continue;
                     }
                 }
             }
