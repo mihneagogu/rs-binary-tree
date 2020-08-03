@@ -27,6 +27,11 @@ where
         }
     }
 
+    pub fn remove(&mut self, item: &T) -> bool {
+        // TODO: Implement like remove_rc
+        unimplemented!();
+    }
+
     pub fn has_item(&self) -> bool {
         self.item.is_some()
     }
@@ -65,6 +70,7 @@ where
     /// returns `true` if the insertion created a new node
     /// `false` otherwise
     pub fn insert(&mut self, item: T) -> bool {
+        // TODO: Change to iterative from recursive
         match &self.item {
             Some(it) => {
                 if it == &item {

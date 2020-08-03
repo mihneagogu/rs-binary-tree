@@ -53,7 +53,8 @@ mod tests {
         let tree_clone = Rc::clone(&tree);
 
         let removed = remove_rc(tree_clone, &1);
-        let tree = tree.borrow();
+        let tree = tree.borrow_mut();
+
         assert!(removed);
         assert!(!tree.contains(&1));
         assert!(tree.contains(&2));
