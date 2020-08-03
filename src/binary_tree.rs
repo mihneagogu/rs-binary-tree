@@ -1,39 +1,72 @@
-use std::cmp::{Ord, Ordering};
+use std::borrow::Borrow;
 use std::cell::RefCell;
+use std::cmp::{Ord, Ordering};
 use std::rc::Rc;
+
+fn rc_ref_new<T>(item: T) -> Rc<RefCell<T>> {
+    Rc::new(RefCell::new(item))
+}
 
 type Node<T> = Option<Rc<RefCell<BinaryTree<T>>>>;
 pub struct BinaryTree<T> {
     left: Node<T>,
     right: Node<T>,
-    item: Option<T>
+    item: Option<T>,
 }
 
-impl<T> BinaryTree<T> 
-where T: Ord // Implicitly requires PartialEq and Eq and PartialOrd
+impl<T> BinaryTree<T>
+where
+    T: Ord, // Implicitly requires PartialEq and Eq and PartialOrd
 {
     /// Initializes an empty binary tree
     pub fn new() -> Self {
-        Self { right: None, left: None, item: None }
+        Self {
+            right: None,
+            left: None,
+            item: None,
+        }
     }
 
+    pub fn has_item(&self) -> bool {
+        self.item.is_some()
+    }
+
+    fn set_left(&mut self, left: Node<T>) {
+        self.left = left;
+    }
+
+    fn get_left(&self) -> Node<T> {
+        Some(Rc::clone(self.left.as_ref().unwrap()))
+    }
+
+    fn get_right(&self) -> Node<T> {
+        Some(Rc::clone(self.right.as_ref().unwrap()))
+    }
+
+    fn set_right(&mut self, right: Node<T>) {
+        self.right = right;
+    }
     /// Initializes a binary tree with the root containg the given item
     pub fn new_from(item: T) -> Self {
-        Self { right: None, left: None, item: Some(item) }
+        Self {
+            right: None,
+            left: None,
+            item: Some(item),
+        }
     }
 
     /// Inserts the given item in the tree
     /// returns `true` if the insertion created a new node
     /// `false` otherwise
-    pub fn insert(&mut self, item: T) -> bool { 
+    pub fn insert(&mut self, item: T) -> bool {
         match &self.item {
-            Some(it) => { 
+            Some(it) => {
                 if it == &item {
                     false
                 } else {
                     match &item.cmp(&it) {
                         Ordering::Equal => unreachable!(),
-                        Ordering::Less =>  {
+                        Ordering::Less => {
                             let left = &self.left;
                             if left.is_none() {
                                 let left_tree = BinaryTree::new_from(item);
@@ -55,7 +88,6 @@ where T: Ord // Implicitly requires PartialEq and Eq and PartialOrd
                             let right = Rc::clone(&right.as_ref().unwrap());
                             return right.borrow_mut().insert(item);
                         }
-
                     }
                 }
             }
@@ -76,13 +108,13 @@ where T: Ord // Implicitly requires PartialEq and Eq and PartialOrd
                 Some(data) => {
                     return match item.cmp(data) {
                         Ordering::Equal => return true,
-                        Ordering::Less =>  {
+                        Ordering::Less => {
                             let left = &container.left;
                             if left.is_none() {
                                 return false;
                             }
                             let left = Rc::clone(&left.as_ref().unwrap());
-                            return left.borrow().contains(item);
+                            return left.as_ref().borrow().contains(item);
                         }
                         Ordering::Greater => {
                             let right = &container.right;
@@ -90,15 +122,75 @@ where T: Ord // Implicitly requires PartialEq and Eq and PartialOrd
                                 return false;
                             }
                             let right = Rc::clone(&right.as_ref().unwrap());
-                            return right.borrow().contains(item);
-
+                            return right.as_ref().borrow().contains(item);
                         }
                     };
-
                 }
-                None => return false
+                None => return false,
             }
         }
         false
     }
+}
+
+/// Removes the given item from the Tree,
+/// returning whether the tree has changed or not
+pub fn remove_rc<T>(root: Rc<RefCell<BinaryTree<T>>>, item: &T) -> bool 
+where T: Ord
+{
+    let mut parent: Node<T> = None;
+    let mut child: Node<T> = Some(root);
+    let mut child_is_left = false;
+
+    while let Some(node) = child {
+        let tree = Rc::clone(&node);
+        let mut tree = tree.borrow_mut();
+        if !tree.has_item() {
+            // Reached a dead end
+            return false;
+        }
+        match &tree.item {
+            Some(data) => {
+                if data == item {
+                    // found value, deleting
+                    let (left_exists, right_exists) = (tree.left.is_some(), tree.right.is_some());
+                    if !left_exists && !right_exists {
+                        // No children
+                        if let Some(rc_parent) = parent {
+                            node.borrow_mut().item = None;
+                            let mut rc_parent = rc_parent.borrow_mut();
+                            // Make sure the parent reference is updated
+                            if child_is_left {
+                                rc_parent.left = None;
+                            } else {
+                                rc_parent.right = None;
+                            }
+                            return true;
+                        } else {
+                            // must still be at root, since parent is None
+                            // then node is actually root, but was moved
+                            tree.item = None;
+                            return true;
+                        }
+                    }
+                } else {
+                    // Haven't found value yet, going down the tree
+                    if item > data {
+                        child = tree.get_left();
+                        parent = Some(node);
+                    } else
+                    /* item < data */
+                    {
+                        child = tree.get_right();
+                        parent = Some(node);
+                    }
+                }
+            }
+            None => unreachable!(),
+        }
+        child = None;
+        parent = None;
+    }
+
+    false
 }

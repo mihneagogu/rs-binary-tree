@@ -5,7 +5,10 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use crate::binary_tree::BinaryTree;
+    use crate::binary_tree as btree;
+    use btree::*;
+    use std::rc::Rc;
+    use std::cell::RefCell;
 
     #[test]
     fn tree_all() {
@@ -31,6 +34,24 @@ mod tests {
         let mut tree = BinaryTree::new();
         tree.insert(0);
         assert!(!tree.insert(0));
+    }
+
+    #[test]
+    fn tree_empty_remove() {
+        let tree = BinaryTree::new();
+        let tree = Rc::new(RefCell::new(tree));
+        let removed = remove_rc(tree, &1);
+        assert!(!removed);
+    }
+
+    #[test]
+    fn tree_remove() {
+        let mut tree = BinaryTree::new_from(2);
+        tree.insert(3);
+        tree.insert(1);
+        let tree = Rc::new(RefCell::new(tree));
+        let removed = remove_rc(tree, &1);
+        assert!(removed);
     }
 
 
