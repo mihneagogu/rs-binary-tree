@@ -36,11 +36,17 @@ where
     }
 
     fn get_left(&self) -> Node<T> {
-        Some(Rc::clone(self.left.as_ref().unwrap()))
+        match &self.left {
+            Some(left) => Some(Rc::clone(left)),
+            None => None
+        }
     }
 
     fn get_right(&self) -> Node<T> {
-        Some(Rc::clone(self.right.as_ref().unwrap()))
+        match &self.right {
+            Some(right) => Some(Rc::clone(right)),
+            None => None
+        }
     }
 
     fn set_right(&mut self, right: Node<T>) {
@@ -133,7 +139,8 @@ where
     }
 }
 
-/// Removes the given item from the Tree,
+/// Takes an Rc Refcell to a tree, which it consumes and
+/// removes the given item from the Tree,
 /// returning whether the tree has changed or not
 pub fn remove_rc<T>(root: Rc<RefCell<BinaryTree<T>>>, item: &T) -> bool 
 where T: Ord
