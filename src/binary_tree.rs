@@ -27,6 +27,19 @@ where
         }
     }
 
+    /// WARNING! If used on a tree you will modify, it will break the tree
+    pub fn item_into(&mut self) -> Option<T> {
+        self.item.take()
+    }
+
+    pub fn right_into(&mut self) -> Node<T> {
+        self.right.take()
+    }
+
+    pub fn left_into(&mut self) -> Node<T> {
+        self.left.take()
+    }
+
     pub fn remove(&mut self, item: &T) -> bool {
         // TODO: Implement like remove_rc
         unimplemented!();
@@ -43,14 +56,14 @@ where
     fn get_left(&self) -> Node<T> {
         match &self.left {
             Some(left) => Some(Rc::clone(left)),
-            None => None
+            None => None,
         }
     }
 
     fn get_right(&self) -> Node<T> {
         match &self.right {
             Some(right) => Some(Rc::clone(right)),
-            None => None
+            None => None,
         }
     }
 
@@ -148,8 +161,9 @@ where
 /// Takes an Rc Refcell to a tree, which it consumes and
 /// removes the given item from the Tree,
 /// returning whether the tree has changed or not
-pub fn remove_rc<T>(root: Rc<RefCell<BinaryTree<T>>>, item: &T) -> bool 
-where T: Ord
+pub fn remove_rc<T>(root: Rc<RefCell<BinaryTree<T>>>, item: &T) -> bool
+where
+    T: Ord,
 {
     let mut parent: Node<T> = None;
     let mut child: Node<T> = Some(root);
@@ -166,26 +180,7 @@ where T: Ord
             Some(data) => {
                 if data == item {
                     // found value, deleting
-                    let (left_exists, right_exists) = (tree.left.is_some(), tree.right.is_some());
-                    if !left_exists && !right_exists {
-                        // No children
-                        if let Some(rc_parent) = parent {
-                            tree.item = None;
-                            let mut rc_parent = rc_parent.borrow_mut();
-                            // Make sure the parent reference is updated
-                            if child_is_left {
-                                rc_parent.left = None;
-                            } else {
-                                rc_parent.right = None;
-                            }
-                            return true;
-                        } else {
-                            // must still be at root, since parent is None
-                            // then node is actually root, but was moved
-                            tree.item = None;
-                            return true;
-                        }
-                    }
+                    return remove_node(&mut *tree, parent, &child_is_left);
                 } else {
                     // Haven't found value yet, going down the tree
                     if item > data {
@@ -210,4 +205,113 @@ where T: Ord
     }
 
     false
+}
+
+/// Does the removal of a node
+/// PRE: tree is the child of parent
+/// and tree.item == &item from remove_rc
+fn remove_node<T>(tree: &mut BinaryTree<T>, parent: Node<T>, child_is_left: &bool) -> bool
+where
+    T: Ord,
+{
+    let (left_exists, right_exists) = (tree.left.is_some(), tree.right.is_some());
+
+    if !left_exists && !right_exists {
+        // No children
+        if let Some(rc_parent) = parent {
+            tree.item = None;
+            let mut rc_parent = rc_parent.borrow_mut();
+            // Make sure the parent reference is updated
+            if *child_is_left {
+                rc_parent.left = None;
+            } else {
+                rc_parent.right = None;
+            }
+            return true;
+        } else {
+            // must still be at root, since parent is None
+            // then node is actually root, but was moved
+            tree.item = None;
+            return true;
+        }
+    } else if left_exists && !right_exists {
+        // only one left child, must replace tree with left node
+        if let Some(rc_parent) = parent {
+            // Substituting current node to its left child
+            let mut rc_parent = rc_parent.borrow_mut();
+            if *child_is_left {
+                rc_parent.left = Some(Rc::clone(&tree.left.as_ref().unwrap()));
+            } else {
+                rc_parent.right = Some(Rc::clone(&tree.left.as_ref().unwrap()));
+            }
+            return true;
+        } else {
+            // tree is actually the root
+            // so replace all of its data with left node data
+            let left = Rc::clone(&tree.left.as_ref().unwrap());
+            let mut left = left.borrow_mut();
+            tree.item = left.item_into();
+            tree.left = left.left.take();
+            tree.right = left.right.take();
+        }
+    } else if right_exists && !left_exists {
+        // only one right child, must replace tree with right node
+        if let Some(rc_parent) = parent {
+            // Substituting current node to its left child
+            let mut rc_parent = rc_parent.borrow_mut();
+            if *child_is_left {
+                rc_parent.left = Some(Rc::clone(&tree.right.as_ref().unwrap()));
+            } else {
+                rc_parent.right = Some(Rc::clone(&tree.right.as_ref().unwrap()));
+            }
+            return true;
+        } else {
+            // tree is actually the root
+            // so replace all of its data with right node data
+            let right = Rc::clone(&tree.right.as_ref().unwrap());
+            let mut right = right.borrow_mut();
+            tree.item = right.item_into();
+            tree.left = right.left.take();
+            tree.right = right.right.take();
+        }
+    } else {
+        return remove_node_two_children(tree, child_is_left);
+    }
+    false
+}
+
+/// Removes a node who has two children
+/// PRE: tree has 2 children
+fn remove_node_two_children<T>(tree: &mut BinaryTree<T>, child_is_left: &bool) -> bool
+where
+    T: Ord,
+{
+    // The ugly bit, tree has two children
+    // so replace it with leftmost node of the right child
+    let mut leftmost_node: Node<T> = tree.get_right();
+    let mut leftmost_parent: Node<T> = None;
+    let mut changed = false;
+
+    // Go down the tree untill you get the leftmost node in the right subtree
+    while let Some(rc_node) = leftmost_node {
+        let lower_left = RefCell::borrow(&rc_node).get_left();
+        if lower_left.is_none() {
+            break;
+        }
+        leftmost_node = lower_left;
+        leftmost_parent = Some(rc_node);
+    }
+
+    // Needed to get it from the parent, otherwise the compiler complains
+    let leftmost_parent = leftmost_parent.unwrap();
+    let leftmost_node = RefCell::borrow(&*leftmost_parent).get_left();
+    // Swap the node to be deleted with the leftmost child of the right subtree
+    let leftmost_node = leftmost_node.unwrap();
+    let mut leftmost_node = leftmost_node.borrow_mut();
+    tree.item = leftmost_node.item_into();
+    leftmost_parent
+        .borrow_mut()
+        .set_left(leftmost_node.right_into());
+
+    true
 }

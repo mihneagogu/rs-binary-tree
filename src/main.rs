@@ -61,5 +61,37 @@ mod tests {
         assert!(tree.contains(&3));
     }
 
+    #[test]
+    fn tree_remove_2_children() {
+        let mut tree = BinaryTree::new_from(15);
+        tree.insert(17);
+        tree.insert(11);
+        tree.insert(14);
+        tree.insert(9);
+        tree.insert(12);
+        tree.insert(13);
+
+        assert!(tree.contains(&17));
+        assert!(tree.contains(&11));
+        assert!(tree.contains(&14));
+        assert!(tree.contains(&14));
+        assert!(tree.contains(&13));
+        assert!(tree.contains(&9));
+
+        let rc_tree = Rc::new(RefCell::new(tree));
+        let tree_clone = Rc::clone(&rc_tree);
+        assert!(remove_rc(tree_clone, &11));
+
+        let tree_ref_mut = rc_tree.borrow_mut();
+        assert!(!tree_ref_mut.contains(&11));
+
+        assert!(tree_ref_mut.contains(&17));
+        assert!(tree_ref_mut.contains(&14));
+        assert!(tree_ref_mut.contains(&14));
+        assert!(tree_ref_mut.contains(&13));
+        assert!(tree_ref_mut.contains(&9));
+
+    }
+
 
 }
